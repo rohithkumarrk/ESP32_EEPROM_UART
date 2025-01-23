@@ -1,0 +1,168 @@
+#include "libraries_and_functions.h"
+
+int main()
+{
+    default_EEPROM(); // Calling this function at the start of the program will Initialize EEPROM with default values and make sure everything is set to starting value and the storage of the data starts from the first address of the memory location.
+    printf("EEPROM Text Storage with UART Protocol\n");
+    //sleep(4); // For realtime experience and delay, this function is used. This can be ignored.
+    printf("The maximum number of characters (letters including space) you can enter to store: %d bytes\n", EEPROM_SIZE);
+    printf("Which task  you want to perform?\n");
+    printf("Transmit: This will send the data from your PC to ESP and store in EEPROM\n");
+    printf("Receive: This will display/print the data stored in the EEPROM\n");
+    printf("Receive: This will display/print the data stored in the EEPROM\n");
+    printf("Flash: This will erase all the data on the EEPROM of the ESP 32\n")
+
+    while (1)
+    {
+        char command[MAX_PAYLOAD]; // the maximum amount of data to be stored will be defined here. We are storing all the data in the form of characters.
+        printf("Enter Task: ");
+        fgets(command, MAX_PAYLOAD, RX_Pin); //A predefined function is used here in the library of the HardwareSerial by Arduino.
+        command[strcspn(command, "\n")] = 0; // Remove newline character
+
+        if (strcasecmp(command, "Transmit") == 0)
+        {
+            store_data_to_EEPROM();
+        }
+        else if (strcasecmp(command, "Receive") == 0)
+        {
+            read_data_from_EEPROM();
+        }
+        else if (strcasecmp(command, "Flash") == 0)
+        {
+            format_data();
+        }
+        else
+        {
+            printf("Invalid command. Use Transmit, Receive or Flash.\n");
+        }
+    }
+
+    return 0;
+}
+
+// Initialize EEPROM with all bytes set to the Default values and the data will be stored from the starting address to the ending address.
+void default_EEPROM()
+{
+    for (int i = 0; i < EEPROM_SIZE; i++)
+    {
+        virtual_EEPROM[i] = 0xFF;
+    }
+}
+
+// Start string the data to the virtual EEPROM from the starting of the first memory location of the EEPROM. 
+void transmit_Pc_MCU(int address, uint8_t value)
+{
+    if (address >= 0x00 && address < EEPROM_SIZE)
+    {
+        virtual_EEPROM[address] = value;
+    }
+}
+
+uint8_t receive_MCU_PC(int address) // this is the function to read the data from the EEPROM and transmit it to PC.
+{
+    if (address >= 0x00 && address < EEPROM_SIZE)
+    {
+        return virtual_EEPROM[address];
+    }
+    return 0xFF; // Return 0xFF for invalid addresses
+}
+
+// Clear the simulated EEPROM by setting all bytes to 0xFF
+void clearEEPROM() // This function is used to call the first function to reset the EEPROM to the default values. This is done because the next cycle should start from the starting point of the memory and not from the address after the null character.
+{
+    default_EEPROM();
+    printf("Text successfully deleted from EEPROM.\n");
+}
+
+// Calculate data transmission speed
+double transmission_speed(int length, unsigned long start_session, unsigned long end_session) // The speed is calculated using the formula of data travelled v/s time taken.
+{
+    unsigned long elapsed_Run_Time = end_session - start_session; // Time in microseconds
+    return (length * 8.0 * 1e6) / elapsed_Run_Time;       // Speed in bps
+}
+
+// Send a message (simulation for UART transmission)
+void transmit_data(const char *message)
+{
+    printf("%s\n", message);
+}
+
+// Receive a message (simulation for UART reception)
+void receive_data(char *buffer, int maxLength)
+{
+    fgets(buffer, maxLength, Rx_Pin);
+    buffer[strcspn(buffer, "\n")] = 0; // Removes the newline character for more data storage space.
+}
+
+// Write text to the simulated EEPROM
+void store_data_to_EEPROM()
+{
+    printf("Enter the text data to store in EEPROM: (max %d characters): ", EEPROM_SIZE);
+    char payload[MAX_PAYLOAD];
+    receive_data(payload, MAX_PAYLOAD);
+
+    unsigned long start_session = clock(); // Start timing
+
+    int payloadLength = strlen(payload);
+    if (payloadLength > EEPROM_SIZE)
+    {
+        printf("Error: Text exceeds EEPROM size. Please enter a shorter text.\n");
+        return;
+    }
+
+    // Store text in EEPROM using the pre defined library of Hardware serial and EEPROM. (These are user defined functions by the Arduino library)
+    for (int i = 0; i < payloadLength; i++)
+    {
+        transmit_Pc_MCU(i, payload[i]);
+        EEPROM.write(0x00, Tx_Pin); // This is a pre defined function of the EEPROM library where the text is written to the EEPROM.
+    }
+
+    // Fill remaining space with 0xFF. This to make sure that the data is not distributed across the empty memory storage and all data is aligned together, the value of all the empty spaces in the filled with HIGH. 
+    for (int i = payloadLength; i < EEPROM_SIZE; i++)
+    {
+        transmit_Pc_MCU(i, 0xFF);
+    }
+
+    unsigned long end_session = clock();
+    double speed = transmission_speed(payloadLength, start_session, end_session); // Calculate speed of the transmission.
+
+    printf("Data successfully stored in EEPROM.\n");
+    printf("Transmission Speed (instantaneous): %.2f bps\n", speed);
+}
+
+// Read text from the simulated EEPROM
+void read_data_from_EEPROM()
+{
+    unsigned long start_session = clock(); // Start clock pulse for the calculation of the data transmitted.
+
+    char stored_Text[MAX_PAYLOAD] = "";
+    int i = 0;
+    for (; i < EEPROM_SIZE; i++)
+    {
+        char c = receive_MCU_PC(i);
+        if (c == 0xFF)
+            break; // Stop receiving the data at the end of the stored text. Here, the last letter of the string is reached and the function stops running.
+        stored_Text[i] = c;
+    }
+    stored_Text[i] = '\0'; // Every string ends with a Null character. So, if the Null character is reached, the data is over and all the data has been transmitted.
+
+    unsigned long end_session = clock(); The data speed estimation is ended here and the session is calculated for the speed.
+    double speed = transmission_speed(strlen(stored_Text), start_session, end_session); // This is the calculation of the amount of data travelled with reference to time.
+
+    if (strlen(stored_Text) > 0) // This case will not work sometimes if the value will be set to FFFF if there is no data in the EEPROM and this will return all 1's. 
+    {
+        printf("Text stored in EEPROM:\n%s\n", stored_Text);
+        printf("Reception Speed (instantaneous): %.2f bps\n", speed);
+    }
+    else
+    {
+         format_data();
+        printf("No text found in EEPROM.\n"); // This will not print if the data in EEPROM is flashed at the the beginning and all the address will be set to a default of 1's.
+}
+
+// Delete text from the simulated EEPROM
+void format_data()
+{
+    clearEEPROM(); 
+      printf("No text found in EEPROM.\n")
+}

@@ -1,0 +1,35 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include"EEPROM.h" 
+#include"driver/Uart.h"
+#include"HardwareSerial.h"
+
+// Since the paragraph is of 1000 characters, the EEPROM memory is chosen to be 1024.
+#define EEPROM_SIZE 2048 // Estimated EEPROM memory usage for this program.
+uint8_t virtual_EEPROM[EEPROM_SIZE];
+
+// UART protocol definitions
+#define HEADER 0xAA // Starting address for the storage of the text data (this is the initial memory location where the storage of the data begins.)
+#define MAX_PAYLOAD 1024 // This is used to print the error message if the text exceeds more than 1000 characters. The MAX_PAYLOAD can be referred to EEPROM_Size also. This can be upto 4096 in case of ESP 32.
+#define Rx_Pin 16 // This is the GPIO pin pre-defined for the use of UART in the ESP 32.
+#define Tx_pin 17 // same as above.
+
+double sampleData[1024]; // Circular buffer for transmission speed calculation
+
+void default_EEPROM(); // This function is used to initialize and set the transmission to default during the starting of the process.
+void transmit_Pc_MCU(int address, uint8_t value); // This function is used to send the text data to the MCU EEPROM from the PC location starting from the address of 0xAA
+uint8_t receive_MCU_PC(int address); // This function is used to echo/receive the text data for the MCU EEPROM location starting from the address of 0xAA and display it on the serial monitor of the PC
+
+void clearEEPROM(); // This function is used to to call the first function to reset the EEPROM to the default values.
+
+double transmission_speed(int length, unsigned long start_session, unsigned long end_session);
+void transmit_data(const char *message); // to transmit the data from the ESP 32 to to PC
+void receive_data(char *buffer, int maxLength); // to transmit the data from the ESP 32 to PC
+void store_data_to_EEPROM(); // To store the data to the EEPROM of the PC 
+void read_data_from_EEPROM(); // To read the data from the EERPOM of the PC
+void format_data();
+
+#endif
